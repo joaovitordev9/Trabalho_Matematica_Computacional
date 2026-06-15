@@ -4,7 +4,7 @@
 
 
 #define MAX_ITER 500
-#define ERRO 0.001
+#define ERRO 0.0001
 
 typedef struct 
 {
@@ -32,7 +32,7 @@ typedef struct
 }bissec;
 
 
-void Lote_Maximo(resultado *dados_saida){
+void Estoque_Maximo(resultado *dados_saida){
     dados_saida->IMAX = dados_saida->Q - dados_saida->B;
 }
 
@@ -42,14 +42,19 @@ float Validar_Lote_Otimo(entrada *dados_entrada,resultado *dados_saida){
     return dados_saida->Q;
 }
 
-void Custo_Total(entrada *dados_entrada,resultado *dados_saida){
-    dados_saida->CT = (dados_entrada->D*dados_entrada->S/dados_saida->Q)+((pow(dados_saida->Q - dados_saida->B,2.0))* dados_entrada->H/(2*dados_saida->Q))+(pow(dados_saida->B,2)*dados_entrada->PI/(2*dados_saida->Q));
-
-}
-
 float Lote_Otimo(entrada *dados_entrada,resultado *dados_saida,float *x){//Achar o Q Otimo
     dados_saida->Q = (-(dados_entrada->D*dados_entrada->S/pow(*x,2)) + (dados_entrada->H/2)*(1-(dados_entrada->H/(dados_entrada->H+dados_entrada->PI))));
     return dados_saida->Q;
+}
+
+void Custo_Total(entrada *dados_entrada,resultado *dados_saida){
+    dados_saida->CT = (dados_entrada->D*dados_entrada->S/dados_saida->Q)+((pow(dados_saida->Q - dados_saida->B,2.0))* dados_entrada->H/(2*dados_saida->Q))+(pow(dados_saida->B,2)*dados_entrada->PI/(2*dados_saida->Q));
+}
+
+float Validar_Custo_Total(entrada *dados_entrada,resultado *dados_saida){
+    float Q = Validar_Lote_Otimo(dados_entrada,dados_saida);
+    float CT =(dados_entrada->D*dados_entrada->S/Q)+((Q*dados_entrada->H)/2);
+    return CT;
 }
 
 void Metodo_bissec(entrada *dados_entrada, resultado *dados_saida, bissec *dados_bissec){
@@ -92,11 +97,11 @@ void Faltas_Planejadas(entrada *dados_entrada,resultado *dados_saida){//Achar o 
 }
 
 float Polinomio_Bolzano(entrada *dados_entrada, float *x){
-    return (-(dados_entrada->D*dados_entrada->S)+((dados_entrada->H/2)*(1-(dados_entrada->H/(dados_entrada->H+dados_entrada->PI))))*pow(*x,2));
+    return (((dados_entrada->H/2)*(1-(dados_entrada->H/(dados_entrada->H+dados_entrada->PI))))*pow(*x,2)-(dados_entrada->D*dados_entrada->S));
 }
 
 void Tabelamento_Intervalo(entrada *dados_entrada,resultado *dados_saida,bissec *dados_bissec){
-    float passo = 1;
+    float passo = 100;
     float a = 0;
     float b = a + passo;
     float fa,fb;
@@ -121,29 +126,168 @@ void Tabelamento_Intervalo(entrada *dados_entrada,resultado *dados_saida,bissec 
 
 void Relatorio_Final(entrada *dados_entrada,resultado *dados_saida,bissec *dados_bissec){
     printf("==================================================\n");
-    printf("RELATÓRIO DE DIMENSIONAMENTO DE ESTOQUES (RAÍZES)\n");
+    printf("RELATORIO DE DIMENSIONAMENTO DE ESTOQUES (RAIZES)\n");
     printf("==================================================\n");
-    
-    printf(">> PARÂMETROS DE ENTRADA:\n");
-    
+
+    printf(">> PARAMETROS DE ENTRADA:\n");
+
     printf("Demanda Anual (D)..........: %.0f\n", dados_entrada->D);
     printf("Custo de Estocagem (H).....: %.2f\n", dados_entrada->H);
     printf("Custo de Setup (S).........: %.2f\n", dados_entrada->S);
     printf("Custo de Falta (PI)........: %.2f\n\n", dados_entrada->PI);
-    
+
     printf(">> INTERVALO DE ISOLAMENTO:\n");
     printf("[a, b].....................: [%.2f, %.2f]\n\n", dados_bissec->a, dados_bissec->b);
-    
-    printf(">> RESULTADOS DA OTIMIZAÇÃO:\n");
+
+    printf(">> RESULTADOS DA OTIMIZACAO:\n");
     printf("Lote Otimo (Q*)............: %.2f\n", dados_saida->Q);
     printf("Faltas Planejadas (B*).....: %.2f\n", dados_saida->B);
     printf("Estoque Maximo (Imax)......: %.2f\n", dados_saida->IMAX);
     printf("Custo Total (CT)...........: R$ %.2f\n", dados_saida->CT);
+    printf("Iter.......................: %d\n", dados_bissec->iter);
+
     printf("==================================================\n");
 }
 
+float Economia_Absoluta(entrada *dados_entrada,resultado *dados_saida){
 
-int main(int argc, char const *argv[])
+    float Economia = Validar_Custo_Total(dados_entrada,dados_saida) - dados_saida->CT;
+    return Economia;
+
+}
+
+float Reducao_Percentual(entrada *dados_entrada,resultado *dados_saida){
+    float DCT = (Economia_Absoluta(dados_entrada,dados_saida) / Validar_Custo_Total(dados_entrada,dados_saida)) * 100;
+    return DCT;
+}
+
+float Proporcao_ressuprimento(resultado *dados_saida){
+    float P = (dados_saida->B / dados_saida->Q) * 100;
+    return P;
+}
+
+float Frequencia_Anual(entrada *dados_entrada,resultado *dados_saida){
+    float F = (dados_entrada->D/dados_saida->Q);
+    return F;
+}
+
+float Tempo_Total(entrada *dados_entrada,resultado *dados_saida){
+    float TT = (dados_saida->Q / dados_entrada->D) * 300;
+    return TT;
+}
+
+float Tempo_Sem_Estoque(entrada *dados_entrada,resultado *dados_saida){
+    float TE = (dados_saida->B / dados_entrada->D) * 300;
+    return TE;
+}
+
+void Menu(entrada *dados_entrada, resultado *dados_saida, bissec *dados_bissec)
+{
+    int opcao;
+
+    printf("\n========================================\n");
+    printf("        MENU - ANALISE DE ESTOQUES      \n");
+    printf("========================================\n");
+    printf("1 - Analise Completa de Custos\n");
+    printf("2 - Analise de Lote e Ressuprimento\n");
+    printf("3 - Frequencia Anual de Pedidos\n");
+    printf("4 - Estoque Maximo e Nivel de Falta\n");
+    printf("5 - Analise de Tempos (Ciclo)\n");
+    printf("0 - Sair\n");
+    printf("========================================\n");
+    printf("Escolha uma opcao: ");
+    scanf("%d", &opcao);
+
+    printf("\n----------------------------------------\n");
+
+    switch (opcao)
+    {
+        case 1:
+        {
+            float C = Validar_Custo_Total(dados_entrada, dados_saida);
+            float Q = Validar_Lote_Otimo(dados_entrada, dados_saida);
+            float CT = dados_saida->CT;
+            float E = Economia_Absoluta(dados_entrada, dados_saida);
+            float R = Reducao_Percentual(dados_entrada, dados_saida);
+
+            Relatorio_Final(dados_entrada, dados_saida, dados_bissec);
+
+            printf("\n>>> RESULTADOS FINANCEIROS\n");
+            printf("CT Classico.............: %.2f\n", C);
+            printf("Q Classico..............: %.2f\n", Q);
+            printf("CT com Backlog..........: %.2f\n", CT);
+            printf("Economia Absoluta.......: %.2f\n", E);
+            printf("Reducao Percentual......: %.2f%%\n", R);
+            break;
+        }
+
+        case 2:
+        {
+            float B = dados_saida->B;
+            float Q = dados_saida->Q;
+            float P = Proporcao_ressuprimento(dados_saida);
+
+            Relatorio_Final(dados_entrada, dados_saida, dados_bissec);
+
+            printf("\n>>> POLITICA DE ESTOQUE\n");
+            printf("Q Otimo.................: %.2f\n", Q);
+            printf("B Otimo.................: %.2f\n", B);
+            printf("Proporcao Ressuprimento.: %.2f%%\n", P);
+            break;
+        }
+
+        case 3:
+        {
+            float F = Frequencia_Anual(dados_entrada, dados_saida);
+
+            Relatorio_Final(dados_entrada, dados_saida, dados_bissec);
+
+            printf("\n>>> FREQUENCIA DE PEDIDOS\n");
+            printf("Demanda Anual (D).......: %.2f\n", dados_entrada->D);
+            printf("Q Otimo.................: %.2f\n", dados_saida->Q);
+            printf("Frequencia Anual........: %.2f pedidos/ano\n", F);
+            break;
+        }
+
+        case 4:
+        {
+            Relatorio_Final(dados_entrada, dados_saida, dados_bissec);
+
+            printf("\n>>> ESTOQUE\n");
+            printf("B Otimo.................: %.2f\n", dados_saida->B);
+            printf("Q Otimo.................: %.2f\n", dados_saida->Q);
+            printf("Estoque Maximo..........: %.2f\n", dados_saida->IMAX);
+            break;
+        }
+
+        case 5:
+        {
+            float TT = Tempo_Total(dados_entrada, dados_saida);
+            float TE = Tempo_Sem_Estoque(dados_entrada, dados_saida);
+
+            Relatorio_Final(dados_entrada, dados_saida, dados_bissec);
+
+            printf("\n>>> ANALISE DE TEMPO\n");
+            printf("B Otimo.................: %.2f\n", dados_saida->B);
+            printf("Q Otimo.................: %.2f\n", dados_saida->Q);
+            printf("Tempo Total.............: %.2f\n", TT);
+            printf("Tempo Sem Estoque.......: %.2f\n", TE);
+            break;
+        }
+
+        case 0:
+            printf("Saindo do sistema...\n");
+            exit(0);
+
+        default:
+            printf("Opcao invalida!\n");
+            break;
+    }
+
+    printf("\n----------------------------------------\n");
+}
+
+int main(int argc, char *argv[])
 {
     entrada dados_entrada;
     resultado dados_saida;
@@ -168,7 +312,10 @@ int main(int argc, char const *argv[])
     Metodo_bissec(&dados_entrada,&dados_saida,&dados_bissec);
     Faltas_Planejadas(&dados_entrada,&dados_saida);
     Custo_Total(&dados_entrada,&dados_saida);
-    Lote_Maximo(&dados_saida);
-    Relatorio_Final(&dados_entrada,&dados_saida,&dados_bissec);
+    Estoque_Maximo(&dados_saida);
+    
+
+    Menu(&dados_entrada,&dados_saida,&dados_bissec);
+
     return 0;
-}
+}   
