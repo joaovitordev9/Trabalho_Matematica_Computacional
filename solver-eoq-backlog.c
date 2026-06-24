@@ -36,7 +36,7 @@ void Estoque_Maximo(resultado *dados_saida){
     dados_saida->IMAX = dados_saida->Q - dados_saida->B;
 }
 
-float Validar_Lote_Otimo(entrada *dados_entrada,resultado *dados_saida){
+float Validar_Lote_Otimo(entrada *dados_entrada,resultado *dados_saida){//Apenas para comparar a solução
 
     dados_saida->Q = sqrt((2*dados_entrada->D*dados_entrada->S)/dados_entrada->H);
     return dados_saida->Q;
@@ -51,7 +51,7 @@ void Custo_Total(entrada *dados_entrada,resultado *dados_saida){
     dados_saida->CT = (dados_entrada->D*dados_entrada->S/dados_saida->Q)+((pow(dados_saida->Q - dados_saida->B,2.0))* dados_entrada->H/(2*dados_saida->Q))+(pow(dados_saida->B,2)*dados_entrada->PI/(2*dados_saida->Q));
 }
 
-float Validar_Custo_Total(entrada *dados_entrada,resultado *dados_saida){
+float Validar_Custo_Total(entrada *dados_entrada,resultado *dados_saida){//Apenas para comparar a solução
     float Q = Validar_Lote_Otimo(dados_entrada,dados_saida);
     float CT =(dados_entrada->D*dados_entrada->S/Q)+((Q*dados_entrada->H)/2);
     return CT;
@@ -102,7 +102,7 @@ float Polinomio_Bolzano(entrada *dados_entrada, float *x){
 
 void Tabelamento_Intervalo(entrada *dados_entrada,resultado *dados_saida,bissec *dados_bissec){
     float passo = 100;
-    float a = 0;
+    float a = 0.00001;//Para evitar divisao por 0 no lote otimo, o intervalo não pode ser 0
     float b = a + passo;
     float fa,fb;
     int encontrou = 0;
